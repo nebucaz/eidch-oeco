@@ -1,0 +1,242 @@
+services:
+  postgres-issuer:
+    image: postgres:15.8
+    volumes:
+      - postgres_issuer_data:/var/lib/postgresql/data
+      - ./init/init-issuer.sql:/docker-entrypoint-initdb.d/init.sql
+    hostname: issuer-db
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "secret"
+    ports:
+      - '5183:5432'
+  eidch-issuer-agent-management:
+    image: eidch-issuer-agent-management
+    build:
+      context: .
+      dockerfile: ./Docker/eidch-issuer-agent-management/Dockerfile
+    ports:
+      - '8080:8080'
+    dns:
+      - 192.168.32.3
+    depends_on:
+      - postgres-issuer
+    environment:
+      EXTERNAL_URL: "${EXTERNAL_URL}"
+      SPRING_APPLICATION_NAME: "issuer-mgmt"
+      ISSUER_ID: "${ISSUER_DID}" #e.g did:tdw:QmejrSkusQgeM6FfA23L6NPoLy3N8aaiV6X5Ysvb47WSj8:identifier-reg-r.trust-infra.swiyu.admin.ch:api:v1:did:ff8eb859-6996-4e51-a976-be1ca584c124
+      DID_STATUS_LIST_VERIFICATION_METHOD: "${ISSUER_DID}#assert-key-01"
+      STATUS_LIST_KEY: |
+        -----BEGIN EC PRIVATE KEY-----
+        MHcCAQEEIDc2bQDISFWc7w6Yan30wC+AjRkkuF5aVliCUhXa1aCpoAoGCCqGSM49
+        AwEHoUQDQgAEfthpoF9EdTotECNzfxKvyLQBOB0w7xGIQsLwX8H5QBJ/UkX/tzhx
+        wkmWzKeKuDNoL+4RpxxYXV/lHqi+72+AwQ==
+        -----END EC PRIVATE KEY-----
+      SWIYU_PARTNER_ID: "${PARTNER_ID}" # must be UUID
+      SWIYU_STATUS_REGISTRY_CUSTOMER_KEY: "${STATUS_REGISTRY_CUSTOMER_KEY}"
+      SWIYU_STATUS_REGISTRY_CUSTOMER_SECRET: "${STATUS_REGISTRY_CUSTOMER_SECRET}"
+      SWIYU_STATUS_REGISTRY_BOOTSTRAP_REFRESH_TOKEN: "${STATUS_REGISTRY_BOOTSTRAP_REFRESH_TOKEN}"
+
+      # Environment specific values. Please consult the main manual
+      SWIYU_STATUS_REGISTRY_TOKEN_URL: "http://keycloak:7080/realms/master/protocol/openid-connect/token" #e.g. https://keymanager-npr-intra.api.admin.ch
+      SWIYU_STATUS_REGISTRY_API_URL: "${STATUS_REGISTRY_API_URL}" #e.g. https://status-reg-api-r.trust-infra.swiyu.admin.ch
+
+      # Default settings for the application. Only change these if you know what you are doing
+      LOGGING_LEVEL_CH_ADMIN_BIT_EID: DEBUG
+      SWIYU_STATUS_REGISTRY_AUTH_ENABLE_REFRESH_TOKEN_FLOW: true
+
+      POSTGRES_JDBC: "jdbc:postgresql://issuer-db:5432/issuer_db"
+      POSTGRES_USER: "issuer_mgmt_user"
+      POSTGRES_PASSWORD: "secret"
+      POSTGRES_DB: issuer_db
+
+  eidch-issuer-agent-oid4vci:
+    image: eidch-issuer-agent-oidc4vci
+    build:
+      context: .
+      dockerfile: ./Docker/eidch-issuer-agent-oid4vci/Dockerfile
+    ports:
+      - '8090:8080'
+    depends_on:
+      - postgres-issuer
+    environment:
+      POSTGRES_JDBC: "jdbc:postgresql://issuer-db:5432/issuer_db"
+      POSTGRES_USER: "issuer_oid4vci_user"
+      POSTGRES_PASSWORD: "secret"
+      POSTGRES_DB: issuer_db
+      EXTERNAL_URL: "${EXTERNAL_URL}"
+      ISSUER_ID: "${ISSUER_DID}" #e.g did:tdw:QmejrSkusQgeM6FfA23L6NPoLy3N8aaiV6X5Ysvb47WSj8:identifier-reg-r.trust-infra.swiyu.admin.ch:api:v1:did:ff8eb859-6996-4e51-a976-be1ca584c124
+      DID_SDJWT_VERIFICATION_METHOD: "${ISSUER_DID}#assert-key-01"
+      SDJWT_KEY: |
+        -----BEGIN EC PRIVATE KEY-----
+        MHcCAQEEIDc2bQDISFWc7w6Yan30wC+AjRkkuF5aVliCUhXa1aCpoAoGCCqGSM49
+        AwEHoUQDQgAEfthpoF9EdTotECNzfxKvyLQBOB0w7xGIQsLwX8H5QBJ/UkX/tzhx
+        wkmWzKeKuDNoL+4RpxxYXV/lHqi+72+AwQ==
+        -----END EC PRIVATE KEY-----
+      # Default settings for the application. Only change these if you know what you are doing
+      OPENID_CONFIG_FILE: "classpath:openid.json"
+      METADATA_CONFIG_FILE: "file:/cfg-files/issuer_metadata.json"
+      TOKEN_TTL: 600
+
+
+  # reverse proxy
+  # nginx-issuer:
+  #   image: nginx:latest
+  #   ports:
+  #     - "8080:80"
+  #   volumes:
+  #     - ./nginx_issuer.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - eidch-issuer-agent-management
+  #     - eidch-issuer-agent-oid4vci
+
+volumes:
+  postgres_issuer_data:
+    driver: local
+
+configs:
+  issuer_metadata:
+    content: |
+      {
+        "credential_issuer": "${external-url}",
+        "credential_endpoint": "${external-url}/credential",
+        "credential_response_encryption": {
+          "encryption_required": false,
+          "alg_values_supported": [
+            "RSA-OAEP-256",
+            "ECDH-ES+A128KW"
+          ],
+          "enc_values_supported": [
+            "A128CBC-HS256"
+          ]
+        },
+        "display": [
+          {
+            "name": "Mein Test VC",
+            "locale": "de-CH",
+            "logo": {
+              "uri": "data:image/png;base64,here-baseimagestring"
+            }
+          },
+          {
+            "name": "My test vc",
+            "locale": "en-US",
+            "logo": {
+              "uri": "data:image/png;base64,here-baseimagestring"
+            }
+          }
+        ],
+        "credential_configurations_supported": {
+          "my-test-vc": {
+            "format": "vc+sd-jwt",
+            "cryptographic_binding_methods_supported": [
+              "did:tdw"
+            ],
+            "credential_signing_alg_values_supported": [
+              "Ed25519VerificationKey2020"
+            ],
+            "proof_types_supported": {
+              "jwt": {
+                "proof_signing_alg_values_supported": [
+                  "ES256",
+                  "ES512"
+                ]
+              }
+            },
+            "display": [
+              {
+                "name": "Demo-VC",
+                "locale": "de-CH",
+                "logo": {
+                  "uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAACPSURBVHgB7ZbbCYAwDEVvxEHcREdzlI7gCHUDN9AtfEJM0S9BUWwrSA5cWujHgdA2oWFcWhAyxKGjYVpYNpaZawSEiHJZCjhhP84lAuMczpUgMir8Tii32PBGiRdoSVWoQhX+UJjiOfnJf9pIV68QQFjsOWIkXoVGYi/OO9zgtlDKZeEBfRbeiT4IU+xRfwVePD+H6WV/zQAAAABJRU5ErkJggg=="
+                },
+                "description": "Das ist ein Test-VC",
+                "background_color": "#ff69b4"
+              },
+              {
+                "name": "Demo-VC",
+                "locale": "en-US",
+                "logo": {
+                  "uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAACxIAAAsSAdLdfvwAAACaSURBVEhLYxgFo2DQA0YoTRB89v0sfp/7PsMr7lcMLnNdXgGF/kNkSANMUBov+M/wn/Hfv38vmBmZX/xl/vtiVf0qVqgUyYAoC6kJRi2kOhi1kOpg1EKqA7pbSFThDSpLP3l/+veE7wnDE14gxkG/534vxmDH8BqqDSsYxEH6n+EpkARjoI9R8X8IzfCT4R9Y7SgYBUMYMDAAAMQ3Q6IEloWyAAAAAElFTkSuQmCC"
+                },
+                "description": "This is an test vc",
+                "background_color": "#4A412A"
+              }
+            ],
+              "vct": "my-test-vc",
+            "claims": {
+              "id": {
+                "mandatory": true,
+                "value_type": "string",
+                "display": [
+                  {
+                    "locale": "de-CH",
+                    "name": "Holder binding key"
+                  },
+                  {
+                    "locale": "fr-CH",
+                    "name": "Holder binding key"
+                  },
+                  {
+                    "locale": "it-CH",
+                    "name": "Holder binding key"
+                  },
+                  {
+                    "locale": "en-US",
+                    "name": "Holder binding key"
+                  }
+                ]
+              },
+              "lastName": {
+                "mandatory": false,
+                "value_type": "string",
+                "display": [
+                  {
+                    "locale": "de-CH",
+                    "name": "Name"
+                  },
+                  {
+                    "locale": "fr-CH",
+                    "name": "Nom de famille"
+                  },
+                  {
+                    "locale": "it-CH",
+                    "name": "Cognome"
+                  },
+                  {
+                    "locale": "en-US",
+                    "name": "Last name"
+                  }
+                ]
+              },
+              "firstName": {
+                "mandatory": false,
+                "value_type": "string",
+                "display": [
+                  {
+                    "locale": "de-CH",
+                    "name": "Vorname"
+                  },
+                  {
+                    "locale": "fr-CH",
+                    "name": "Prénom"
+                  },
+                  {
+                    "locale": "it-CH",
+                    "name": "Nome"
+                  },
+                  {
+                    "locale": "en-US",
+                    "name": "First name"
+                  }
+                ]
+              }
+            },
+            "order": [
+              "id",
+              "lastName",
+              "firstName"
+            ]
+          }
+        }
+      }

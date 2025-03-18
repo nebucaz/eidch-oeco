@@ -1,0 +1,6 @@
+[submodule "eidch-issuer-agent-management"]
+	path = eidch-issuer-agent-management
+	url = git@github.com:nebucaz/eidch-issuer-agent-management.git
+[submodule "eidch-issuer-agent-oid4vci"]
+	path = eidch-issuer-agent-oid4vci
+	url = git@github.com:nebucaz/eidch-issuer-agent-oid4vci.git

@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2025 Swiss Confederation
+#
+# SPDX-License-Identifier: MIT
+server:
+  port: 8081
+
+spring:
+  docker:
+    compose:
+      enabled: true
+  datasource:
+    url: "jdbc:postgresql://localhost:5432/issuer_db"
+    username: "issuer_oid4vci_user"
+    password: "secret"
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create # when starting locally we connect to the db from compose.yml and generate the schema from hibernate
+
+logging:
+  level:
+    ch.admin.bj.swiyu: DEBUG
+
+application:
+  issuer-id: "did:tdw:QmUvM67g3gh15bX4jyQwF6LL2961GR2b4rrTfowxe51R3s:base-registry.home.rwpz.net:api:vi:did:8bbe89d1-3a29-465a-9ba4-b900924039e0"
+  external-url: "https://issuer-oid4vci.home.rwpz.net:8081"
+  token-ttl: 600
+  #  openid-file: "file:///data/openid.json"
+  openid-file: "classpath:openid.json"
+  metadata-file: "classpath:issuer_metadata.json"
+  key:
+    sdjwt:
+      private-key: "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEINx9F+kdKHiFjAjVQadZes3OhQprhZk5B5DFxdRyimGMoAoGCCqGSM49\nAwEHoUQDQgAEuytbM8Rpjp50ZLqfvHiYTkj6fn2d+7HQiUPWCQ+Al/fuZbCN312B\nEEdJxwZBWbjbQS+sCYQopYSds9lDPZK8fA==\n-----END EC PRIVATE KEY-----\n"

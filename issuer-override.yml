@@ -1,0 +1,17 @@
+services:
+  eidch-issuer-agent-management:
+    environment:
+      STATUS_LIST_KEY: |
+        -----BEGIN EC PRIVATE KEY-----
+        MHcCAQEEIO5FbulbZE+lqhnRzna9ZmyHRvtz4VQMmfjV56HZVHEaoAoGCCqGSM49
+        AwEHoUQDQgAEaYFZ7zlAO0pJrl4os50KVRuW/lvylAZMAK+Pe2ReOnpK6RTaihUs
+        jMZN46aUUUoK2ajq0sLYGPOYz1bejW1lvg==
+        -----END EC PRIVATE KEY-----
+  eidch-issuer-agent-oid4vci:
+    environment:
+      SDJWT_KEY: |
+        -----BEGIN EC PRIVATE KEY-----
+        MHcCAQEEINx9F+kdKHiFjAjVQadZes3OhQprhZk5B5DFxdRyimGMoAoGCCqGSM49
+        AwEHoUQDQgAEuytbM8Rpjp50ZLqfvHiYTkj6fn2d+7HQiUPWCQ+Al/fuZbCN312B
+        EEdJxwZBWbjbQS+sCYQopYSds9lDPZK8fA==
+        -----END EC PRIVATE KEY-----
